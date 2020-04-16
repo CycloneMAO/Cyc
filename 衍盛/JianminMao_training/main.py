@@ -10,7 +10,7 @@ from StockData import StockData
 
 # Please go through all the sub-questions one by one and check the results
 # E1.1  StockData.__init__(path)
-data_path = r'C:\Users\dell\Desktop\Financial Engineering\衍盛\training\data'
+data_path = r'.\training\data'
 myDataManager = StockData(data_path)
 
 # E1.2  StockData.read(symbols)
