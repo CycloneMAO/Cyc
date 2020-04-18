@@ -33,7 +33,7 @@ time_interval=['20190102','20200123']
 file_path=r'E:\Siwei\tensortrade_data\2019price_volume'
 # In[ ]:
 import os
-def getSingleStockData(ticker:str,time_interval:[start,end],file_path:str):
+def getSingleStockData(ticker:str,time_interval:list,file_path:str):
   file_list=os.listdir(file_path)
   data_days=[]
   start=time_interval[0]
@@ -78,11 +78,23 @@ from tensortrade.exchanges import Exchange
 from tensortrade.exchanges.services.execution.simulated import execute_order
 from tensortrade.data import Stream
 # In[213]:
-one_stock_exchange = Exchange("OSE", service=execute_order)(
-    Stream("CNY-平安银行", list(pinan['CLOSE'])),
+import tensortrade as td
+from tensortrade.instruments import Instrument,USD, BTC, ETH, LTC,CNY
+from tensortrade.wallets import Wallet, Portfolio
+N000001 = Instrument('平安银行', 2, '000001')
+
+config = {
+    "base_instrument": CNY,
+    "instruments": [N000001]
+}
+
+
+with td.TradingContext(**config):
+    one_stock_exchange = Exchange("OSE", service=execute_order)(
+        Stream("CNY-平安银行", list(pinan['CLOSE'])),
     #Stream("CNY-ETH", list(coinbase_data['ETH:close']))
 )
-
+one_stock_exchange.build()
 # bitstamp = Exchange("bitstamp", service=execute_order)(
 #     Stream("USD-BTC", list(bitstamp_data['BTC:close'])),
 #     Stream("USD-ETH", list(bitstamp_data['ETH:close'])),
@@ -149,14 +161,12 @@ feed.next()
 # In[215]:
 
 
-from tensortrade.instruments import Instrument,USD, BTC, ETH, LTC,CNY
-from tensortrade.wallets import Wallet, Portfolio
-N000001 = Instrument('平安银行', 2, '000001')
 
-portfolio = Portfolio(CNY, [
-    Wallet(one_stock_exchange, 100000 * CNY),
-    Wallet(one_stock_exchange, 100 * N000001)
-])
+with td.TradingContext(**config):
+    portfolio = Portfolio(CNY, [
+        Wallet(one_stock_exchange, 100000 * CNY),
+        Wallet(one_stock_exchange, 100 * N000001)
+    ])
 
 
 # In[87]:
@@ -175,17 +185,17 @@ feed.reset()
 
 
 
-from tensortrade.instruments import USD, BTC, ETH, LTC
-from tensortrade.wallets import Wallet, Portfolio
+# from tensortrade.instruments import USD, BTC, ETH, LTC
+# from tensortrade.wallets import Wallet, Portfolio
 
-portfolio = Portfolio(USD, [
-    Wallet(coinbase, 10000 * USD),
-    Wallet(coinbase, 10 * BTC),
-    Wallet(coinbase, 5 * ETH),
-    Wallet(bitstamp, 1000 * USD),
-    Wallet(bitstamp, 5 * BTC),
-    Wallet(bitstamp, 3 * LTC),
-])
+# portfolio = Portfolio(USD, [
+#     Wallet(coinbase, 10000 * USD),
+#     Wallet(coinbase, 10 * BTC),
+#     Wallet(coinbase, 5 * ETH),
+#     Wallet(bitstamp, 1000 * USD),
+#     Wallet(bitstamp, 5 * BTC),
+#     Wallet(bitstamp, 3 * LTC),
+# ])
 
 
 # In[216]:
@@ -193,123 +203,33 @@ portfolio = Portfolio(USD, [
 
 from tensortrade.environments import TradingEnvironment
 
-env = TradingEnvironment(portfolio=portfolio,
-    action_scheme='managed-risk',
-    reward_scheme='simple',
-    feed=feed)
+with td.TradingContext(**config):
+    
+    env = TradingEnvironment(portfolio=portfolio,
+          action_scheme='managed-risk',
+          reward_scheme='simple',
+          feed=feed,
+          #use_internal=False,
+          window_size = 20)
+
 
 
 # In[137]:
-
-
-# from tensortrade.data.internal.helpers import create_internal_feed
-
-
-# # In[197]:
-
-
-# new_feed=create_internal_feed(portfolio)  ###产生新环境时，除了传递给环境的feed外，还会自动生成一个内置feed，这个内置feed有问题，无法使用.next()
-
-
-# In[ ]:
-
-
-
-
-
-# In[198]:
-
-
-# new_feed.next()
-
-
-# In[183]:
-
-
-# new_feed._next(new_feed.inputs[0])
-
-
-# # In[199]:
-
-
-# for i in range(len(new_feed.inputs)):
-#     print(i)
-#     new_feed._next(new_feed.inputs[i])  ###internal feed 的第三个node有问题
-
-
-# # In[201]:
-
-
-# i
-
-
-# In[204]:
-
-
-# for output_node in new_feed.inputs[1].outbound:
-#     new_feed.inputs[1]._next(output_node)
-
-
-# # In[187]:
-
-
-# new_feed._data
-
-
-# # In[148]:
-
-
-# for i in range(len(new_feed.inputs)):
-#     print(i,new_feed.inputs[i].forward(new_feed.inputs[i]._inbound_data))
-    
-    
-    
-
-
-# # In[166]:
-
-
-# feed.inputs
-
-
-# # In[167]:
-
-
-# for node in feed.inputs:
-#     feed._next(node)
-
-
-# # In[175]:
-
-
-# feed._next(feed.inputs[0].outbound[0])
-
-
-# # In[176]:
-
-
-# feed._data
-
-
-# # In[161]:
-
-
-# ll={}
-# ll.update({'nsg':25})
-
-
-# # In[162]:
-
-
-# ll
-
-
-# # In[178]:
-
-
-# feed.inputs[:2]+feed.inputs[2:4]
-
+from tensortrade.agents import DQNAgent
+myAgent = DQNAgent(env)
+myAgent.train(n_step = 100, n_episodes = 5, save_path='./models')
 # In[178]:
+import tensorflow as tf
+network = tf.keras.Sequential([
+            tf.keras.layers.InputLayer(input_shape=(20,73)),
+            tf.keras.layers.Conv1D(filters=64, kernel_size=6, padding="same", activation="tanh"),
+            tf.keras.layers.MaxPooling1D(pool_size=2),
+            tf.keras.layers.Conv1D(filters=6, kernel_size=3, padding="same", activation="tanh"),
+            tf.keras.layers.MaxPooling1D(pool_size=2),
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(361, activation="sigmoid"),
+            tf.keras.layers.Dense(361, activation="softmax")
+        ])
 # In[178]:
 # In[178]:
 # In[178]:
